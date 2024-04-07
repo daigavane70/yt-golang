@@ -114,7 +114,7 @@ func StartFetchVideosJob() {
 	logger.Info("[StartFetchVideosJob] Downtime sync completed")
 
 	for {
-		fetchDataFromYoutube()
-		time.Sleep(10 * time.Second)
+		go fetchDataFromYoutube()
+		time.Sleep(30 * time.Second)
 	}
 }
