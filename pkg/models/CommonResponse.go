@@ -1,4 +1,4 @@
-package data
+package models
 
 type CommonApiResponse struct {
 	Success bool        `json:"success"`
@@ -11,5 +11,5 @@ func CreateCommonSuccessResponse(Data interface{}) CommonApiResponse {
 }
 
 func CreateCommonErrorResponse(Error string) CommonApiResponse {
-	return CommonApiResponse{Success: true, Data: nil, Error: Error}
+	return CommonApiResponse{Success: false, Data: nil, Error: Error}
 }
