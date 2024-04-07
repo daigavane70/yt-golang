@@ -6,7 +6,7 @@ import (
 	"sprint/go/pkg/common/logger"
 
 	"github.com/joho/godotenv"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -56,17 +56,17 @@ func ConnectDB() {
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
-	dsn := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=disable", dbUsername, dbPassword, dbHost, dbPort, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		dbUsername, dbPassword, dbHost, dbPort, dbName)
+	logger.Info("dsm: ", dsn)
 
-	logger.Info("db source name: ", dsn)
-
-	db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 
 	if err != nil {
 		logger.Error("Error connecting to database, ", err)
 	}
 
-	// logger.Success("Successfully connect to the database at port: ", dbPort)
+	logger.Success("Successfully connect to the database at port: ", dbPort)
 }
 
 func GetDB() *gorm.DB {
