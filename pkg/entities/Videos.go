@@ -5,6 +5,7 @@ import (
 	"sprint/go/pkg/common/utils"
 	"sprint/go/pkg/config"
 	"sprint/go/pkg/models"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -54,7 +55,14 @@ func SearchVideosByKeyword(keyword string, pageSize int, page int) ([]Video, mod
 	offset := (page - 1) * pageSize
 	var totalCount int64
 
-	query := videoDB.Where("videos.title LIKE ?", "%"+keyword+"%").Or("videos.description LIKE ?", "%"+keyword+"%")
+	keywords := strings.Fields(keyword)
+
+	query := videoDB
+
+	// Loop through each word and adding a condition to search for it in title or description
+	for _, word := range keywords {
+		query = query.Where("videos.title LIKE ?", "%"+word+"%").Or("videos.description LIKE ?", "%"+word+"%")
+	}
 
 	// Get total count without limit
 	query.Find(&videos).Count(&totalCount)

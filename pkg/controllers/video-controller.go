@@ -13,7 +13,7 @@ import (
 var NewVideo entities.Video
 
 var SearchVideos = func(w http.ResponseWriter, r *http.Request) {
-	searchKeyword := r.URL.Query().Get("searchKeyword")
+	searchKeyword := r.URL.Query().Get("search")
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1
