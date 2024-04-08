@@ -2,6 +2,7 @@ package entities
 
 import (
 	"sprint/go/pkg/common/logger"
+	"sprint/go/pkg/common/utils"
 	"sprint/go/pkg/config"
 	"sprint/go/pkg/models"
 
@@ -34,6 +35,7 @@ func CreateVideos(videos []Video) error {
 		return nil // No videos to create
 	}
 	result := videoDB.Create(&videos)
+
 	if result.Error != nil {
 		logger.Error("[CreateVideos] Error creating videos: ", result.Error)
 		return result.Error
@@ -66,4 +68,22 @@ func SearchVideosByKeyword(keyword string, pageSize int, page int) ([]Video, mod
 	metaData := models.MetaData{TotalResults: int(totalCount), PageSize: pageSize, Page: page}
 
 	return videos, metaData, nil
+}
+
+func GetLastPublishedVideoTime() (string, error) {
+	var latestTime int
+	var err error
+
+	// Fetch the maximum value of PublishedAt using GORM
+	result := videoDB.Table("videos").Select("MAX(published_at)").Scan(&latestTime)
+
+	logger.Info("result", result)
+
+	if result.Error != nil {
+		// Handle the error if the query fails
+		err = result.Error
+		return "", err
+	}
+
+	return utils.EpochToUTC(int64(latestTime)), err
 }

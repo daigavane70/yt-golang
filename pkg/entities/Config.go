@@ -40,7 +40,7 @@ func GetValueByKey(key string) (string, error) {
 	return configValue.Value, nil
 }
 
-func UpdateValueByKey(updatedConfig Config) Config {
+func UpdateValue(updatedConfig Config) Config {
 	saveResult := configDb.Where("configs.key = ?", updatedConfig.Key).Save(&updatedConfig)
 	if saveResult.Error != nil {
 		logger.Error("[UpdateValueByKey] Error while updating config key: ", updatedConfig.Key, ", error: ", saveResult.Error)

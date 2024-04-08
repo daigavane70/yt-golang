@@ -23,3 +23,12 @@ func ParseBody(r io.Reader, x interface{}) error {
 func ConvertToUnix(timeValue time.Time) int64 {
 	return timeValue.UTC().Unix()
 }
+
+func EpochToUTC(epoch int64) string {
+	utcTime := time.Unix(epoch, 0).UTC()
+	return utcTime.Format(time.RFC3339)
+}
+
+func FormatToRFC3339(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
+}
