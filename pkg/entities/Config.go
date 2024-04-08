@@ -13,7 +13,7 @@ var (
 
 const (
 	LastFetchedAtKey = "lastFetchedAt"
-	SeondaryApiKey   = "SeondaryApiKey"
+	SecondaryApiKey  = "SeondaryApiKey"
 )
 
 type Config struct {

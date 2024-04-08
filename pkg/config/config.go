@@ -12,62 +12,53 @@ import (
 
 var db *gorm.DB
 
-// init initializes the configuration by loading environment variables from a .env file.
-// It logs an error if the .env file is not found or cannot be loaded.
 func init() {
-	err := godotenv.Load()
-	if err != nil {
-		logger.Error("Error loading .env file, using default values")
+	loadEnvFile()
+}
+
+func loadEnvFile() {
+	if err := godotenv.Load(); err != nil {
+		logger.Error("Error loading .env file:", err)
 	}
 }
 
-// GetPortAndHost retrieves the port and host from environment variables or uses default values.
-// If PORT or HOST environment variables are not set, it defaults to port 8080 and host localhost.
-func GetPortAndHost() (host string, port string) {
-	// Get environment variables or use default values
-	port = os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "8080" // Default port if not specified in .env
-	}
-
-	host = os.Getenv("SERVER_HOST")
-	if host == "" {
-		host = "localhost" // Default host if not specified in .env
-	}
+func GetPortAndHost() (host, port string) {
+	host = getEnvOrDefault("SERVER_HOST", "localhost")
+	port = getEnvOrDefault("SERVER_PORT", "8080")
 	return
 }
 
-// GetGoogleApiKey retrieves the Google API key from environment variables.
-// It returns an empty string if API_KEY environment variable is not set.
-func GetGoogleApiKey() (apiKey string) {
-	apiKey = os.Getenv("API_KEY")
-	return
+func getEnvOrDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
+}
+
+func GetGoogleApiKey() string {
+	return os.Getenv("API_KEY")
 }
 
 func ConnectDB() {
-	err := godotenv.Load()
-	if err != nil {
-		logger.Error("Error loading .env file")
-	}
+	loadEnvFile()
 
 	dbUsername := os.Getenv("DB_USERNAME")
 	dbPassword := os.Getenv("DB_PASSWORD")
-	// dbHost := "host.docker.internal"
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		dbUsername, dbPassword, dbHost, dbPort, dbName)
-	logger.Info("dsm: ", dsn)
 
+	var err error
 	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
-
 	if err != nil {
-		logger.Error("Error connecting to database, ", err)
+		logger.Error("Error connecting to database:", err)
+		return
 	}
-
-	logger.Success("Successfully connect to the database at port: ", dbPort)
+	logger.Success("Successfully connected to the database at port:", dbPort)
 }
 
 func GetDB() *gorm.DB {

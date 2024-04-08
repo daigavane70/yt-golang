@@ -4,58 +4,56 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sprint/go/pkg/common/logger"
-	"sprint/go/pkg/common/utils"
-	"sprint/go/pkg/config"
-	"sprint/go/pkg/entities"
-	"sprint/go/pkg/models"
 	"strconv"
 	"sync"
 	"time"
+
+	"sprint/go/pkg/common/logger"
+	"sprint/go/pkg/common/utils"
+	"sprint/go/pkg/entities"
+	"sprint/go/pkg/models"
 )
 
-var downtimeSync sync.WaitGroup
-var apiKey = config.GetGoogleApiKey()
-var usingSecondaryKey = false
+var (
+	downtimeSync      sync.WaitGroup
+	apiKey            string
+	usingSecondaryKey bool
+)
 
-// fetch all the videos that were uploaded during downtime
 func init() {
 	downtimeSync.Add(1)
-	logger.Info("Fetching the videos that were uploaded during downtime")
+	logger.Info("Fetching videos uploaded during downtime")
+
 	latestVideoTime, err := entities.GetLastPublishedVideoTime()
 	if err != nil {
-		logger.Error("Unable to fetch the last video publish time before downtime, error: ", err)
+		logger.Error("Unable to fetch last video publish time before downtime:", err)
 	}
 	fetchDataFromYoutube(latestVideoTime, utils.FormatToRFC3339(time.Now()))
 	downtimeSync.Done()
 }
 
 func useSecondaryKey() {
-	secondaryKey, err := entities.GetValueByKey(entities.SeondaryApiKey)
+	secondaryKey, err := entities.GetValueByKey(entities.SecondaryApiKey)
 	if err != nil {
-		logger.Error("Error while fetching secondary key, ", err)
+		logger.Error("Error fetching secondary key:", err)
+		return
 	}
 	apiKey = secondaryKey
 	usingSecondaryKey = true
 }
 
 func getLastPublishedValue() string {
-	// Get the last fetched value from the database
 	val, err := entities.GetValueByKey(entities.LastFetchedAtKey)
 	if err != nil || val == "" {
-		// If there's an error or the value is empty, return the current time minus 1 hour in RFC3339 format
 		return utils.FormatToRFC3339(time.Now().Add(-1 * time.Hour))
 	}
 
-	// Convert the fetched value (epoch time) to int64
 	epoch, _ := strconv.ParseInt(val, 10, 64)
-
-	// Convert the epoch time to UTC time string
 	unixTime := utils.FormatToRFC3339(time.Unix(epoch, 0))
 	return unixTime
 }
 
-func getSearchUrl(publishedAfter string, publishedBefore string) string {
+func getSearchUrl(publishedAfter, publishedBefore string) string {
 	const (
 		part         = "snippet"
 		maxCounts    = 20
@@ -69,19 +67,16 @@ func getSearchUrl(publishedAfter string, publishedBefore string) string {
 	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s%s%s", part, searchQuery, maxCounts, dateOrder, publishedAfter, contentType, apiKeyPrefix, apiKey)
 
 	if publishedBefore != "" {
-		url = fmt.Sprintf("%s&publishedBefore=%s", url, publishedBefore)
+		url += fmt.Sprintf("&publishedBefore=%s", publishedBefore)
 	}
 
 	return url
 }
 
-func fetchDataFromYoutube(publishedAfter string, publishedBefore string) {
-
+func fetchDataFromYoutube(publishedAfter, publishedBefore string) {
 	client := &http.Client{}
-
 	url := getSearchUrl(publishedAfter, publishedBefore)
-
-	logger.Info("url: ", url)
+	logger.Info("URL:", url)
 
 	res, err := client.Get(url)
 	if err != nil {
@@ -92,12 +87,13 @@ func fetchDataFromYoutube(publishedAfter string, publishedBefore string) {
 
 	if res.StatusCode == http.StatusBadRequest {
 		if usingSecondaryKey {
-			logger.Error("Both Api key expired: ", res.Status)
+			logger.Error("Both API keys expired:", res.Status)
 			return
 		}
-		logger.Error("Api key expired: ", res.Status)
+		logger.Error("API key expired:", res.Status)
 		useSecondaryKey()
 		fetchDataFromYoutube(publishedAfter, publishedBefore)
+		return
 	}
 
 	if res.StatusCode != http.StatusOK {
@@ -112,7 +108,6 @@ func fetchDataFromYoutube(publishedAfter string, publishedBefore string) {
 	}
 
 	items := response.Items
-
 	logger.Info("Fetched total videos:", len(items))
 
 	for _, item := range items {
@@ -135,7 +130,6 @@ func fetchDataFromYoutube(publishedAfter string, publishedBefore string) {
 func StartFetchVideosJob() {
 	defer logger.Info("[StartFetchVideosJob] Completed")
 
-	// Wait for the downtime sync to finish
 	logger.Info("[StartFetchVideosJob] Waiting for downtime sync")
 	downtimeSync.Wait()
 	logger.Info("[StartFetchVideosJob] Downtime sync completed")
