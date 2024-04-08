@@ -15,6 +15,8 @@ import (
 )
 
 var downtimeSync sync.WaitGroup
+var apiKey = config.GetGoogleApiKey()
+var usingSecondaryKey = false
 
 // fetch all the videos that were uploaded during downtime
 func init() {
@@ -26,6 +28,15 @@ func init() {
 	}
 	fetchDataFromYoutube(latestVideoTime, utils.FormatToRFC3339(time.Now()))
 	downtimeSync.Done()
+}
+
+func useSecondaryKey() {
+	secondaryKey, err := entities.GetValueByKey(entities.SeondaryApiKey)
+	if err != nil {
+		logger.Error("Error while fetching secondary key, ", err)
+	}
+	apiKey = secondaryKey
+	usingSecondaryKey = true
 }
 
 func getLastPublishedValue() string {
@@ -55,7 +66,7 @@ func getSearchUrl(publishedAfter string, publishedBefore string) string {
 		apiKeyPrefix = "&key="
 	)
 
-	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s%s%s", part, searchQuery, maxCounts, dateOrder, publishedAfter, contentType, apiKeyPrefix, config.GetGoogleApiKey())
+	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s%s%s", part, searchQuery, maxCounts, dateOrder, publishedAfter, contentType, apiKeyPrefix, apiKey)
 
 	if publishedBefore != "" {
 		url = fmt.Sprintf("%s&publishedBefore=%s", url, publishedBefore)
@@ -78,6 +89,16 @@ func fetchDataFromYoutube(publishedAfter string, publishedBefore string) {
 		return
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusBadRequest {
+		if usingSecondaryKey {
+			logger.Error("Both Api key expired: ", res.Status)
+			return
+		}
+		logger.Error("Api key expired: ", res.Status)
+		useSecondaryKey()
+		fetchDataFromYoutube(publishedAfter, publishedBefore)
+	}
 
 	if res.StatusCode != http.StatusOK {
 		logger.Error("Non-OK status code received from YouTube:", res.Status)
