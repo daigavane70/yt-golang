@@ -13,16 +13,20 @@ var NewVideo entities.Video
 
 // SearchVideos handles the API endpoint for searching videos by keyword.
 var SearchVideos = func(w http.ResponseWriter, r *http.Request) {
+
 	// Get search parameters from URL query
 	searchKeyword := r.URL.Query().Get("search")
+
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1 // Default page if not provided
 	}
+
 	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
 	if err != nil {
 		pageSize = 5 // Default page size if not provided
 	}
+
 	// Check if searchKeyword is empty
 	if searchKeyword == "" {
 		response := models.CreateCommonErrorResponse("Search keyword is required")
