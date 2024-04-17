@@ -89,7 +89,7 @@ func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode == http.StatusBadRequest || res.StatusCode == http.StatusForbidden {
+	if res.StatusCode == http.StatusBadRequest {
 		if usingSecondaryKey {
 			logger.Error("Both API keys expired: ", res.Status)
 			stopJobExecution = true

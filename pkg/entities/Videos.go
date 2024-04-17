@@ -51,18 +51,19 @@ func GetAllVideos() []Video {
 	return videos
 }
 
-func SearchVideosByKeyword(keyword string, pageSize int, page int) ([]Video, models.MetaData, error) {
+func SearchVideosByKeyword(searchQuery string, pageSize int, page int) ([]Video, models.MetaData, error) {
 	var videos []Video
 	offset := (page - 1) * pageSize
 	var totalCount int64
 
-	keywords := strings.Fields(keyword)
-
 	query := videoDB
 
-	// Loop through each word and adding a condition to search for it in title or description
-	for _, word := range keywords {
-		query = query.Where("videos.title LIKE ?", "%"+word+"%").Or("videos.description LIKE ?", "%"+word+"%")
+	if searchQuery != "" {
+		keywords := strings.Fields(searchQuery)
+		// Loop through each word and adding a condition to search for it in title or description
+		for _, word := range keywords {
+			query = query.Where("videos.title LIKE ?", "%"+word+"%").Or("videos.description LIKE ?", "%"+word+"%")
+		}
 	}
 
 	// Get total count without limit

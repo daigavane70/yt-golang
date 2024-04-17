@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -57,7 +58,9 @@ func ConnectDB() {
 		dbUsername, dbPassword, dbHost, dbPort, dbName)
 
 	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Info),
+	})
 	if err != nil {
 		logger.Error("Error connecting to database:", err)
 		return
