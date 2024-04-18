@@ -10,133 +10,160 @@ import (
 
 	"sprint/go/pkg/common/logger"
 	"sprint/go/pkg/common/utils"
+	"sprint/go/pkg/config"
 	"sprint/go/pkg/entities"
 	"sprint/go/pkg/models"
 )
 
 var (
-	downtimeSync      sync.WaitGroup
-	apiKey            string
+	stopJobExecution  = false
+	preProcessing     sync.WaitGroup
+	apiKey            = config.GetApiKey(false)
 	usingSecondaryKey bool
+	videoIdsMap       = make(map[string]bool)
 )
 
 func init() {
-	downtimeSync.Add(1)
-	logger.Info("Fetching videos uploaded during downtime")
+	storeTheExistingVideoIds()
+}
+
+func fetchDownTimeData() {
+	preProcessing.Add(1)
+	logger.Info("[fetchDownTimeData] Fetching videos uploaded during downtime")
 
 	latestVideoTime, err := entities.GetLastPublishedVideoTime()
+
 	if err != nil {
-		logger.Error("Unable to fetch last video publish time before downtime:", err)
+		logger.Error("[fetchDownTimeData] Unable to fetch last video publish time before downtime:", err)
 	}
-	fetchDataFromYoutube(latestVideoTime, utils.FormatToRFC3339(time.Now()))
-	downtimeSync.Done()
+	fetchDataFromYoutube(latestVideoTime, time.Now().Unix())
+	preProcessing.Done()
+}
+
+func storeTheExistingVideoIds() {
+	videoIds := entities.GetAllExistingVideoIds()
+	logger.Info("[storeTheExistingVideoIds] storing total: ", len(videoIds), " existing video ids")
+	for _, id := range videoIds {
+		videoIdsMap[id] = true
+	}
 }
 
 func useSecondaryKey() {
-	secondaryKey, err := entities.GetValueByKey(entities.SecondaryApiKey)
-	if err != nil {
-		logger.Error("Error fetching secondary key:", err)
-		return
-	}
-	apiKey = secondaryKey
+	apiKey = config.GetApiKey(false)
 	usingSecondaryKey = true
 }
 
-func getLastPublishedValue() string {
-	val, err := entities.GetValueByKey(entities.LastFetchedAtKey)
-	if err != nil || val == "" {
-		return utils.FormatToRFC3339(time.Now().Add(-1 * time.Hour))
+func getLastPublishedValue() int64 {
+	defaultTime := time.Now().Add(-1 * time.Hour).Unix()
+
+	// get last published data from config;
+	val, configErr := entities.GetValueByKey(entities.LastFetchedAtKey)
+
+	// if error, then fetch most recently published video time
+	if configErr != nil || val == "" {
+		epoch, videoErr := entities.GetLastPublishedVideoTime()
+		// if error while
+		if videoErr != nil {
+			return defaultTime
+		}
+		return epoch
 	}
 
-	epoch, _ := strconv.ParseInt(val, 10, 64)
-	unixTime := utils.FormatToRFC3339(time.Unix(epoch, 0))
-	return unixTime
-}
+	epoch, err := strconv.ParseInt(val, 10, 64)
 
-func getSearchUrl(publishedAfter, publishedBefore string) string {
-	const (
-		part         = "snippet"
-		maxCounts    = 20
-		searchQuery  = "cricket"
-		contentType  = "video"
-		dateOrder    = "date"
-		timeFormat   = "2006-01-02T15:04:05Z"
-		apiKeyPrefix = "&key="
-	)
-
-	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s%s%s", part, searchQuery, maxCounts, dateOrder, publishedAfter, contentType, apiKeyPrefix, apiKey)
-
-	if publishedBefore != "" {
-		url += fmt.Sprintf("&publishedBefore=%s", publishedBefore)
+	if err != nil {
+		return defaultTime
 	}
 
-	return url
+	return epoch
 }
 
-func fetchDataFromYoutube(publishedAfter, publishedBefore string) {
+func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
 	client := &http.Client{}
-	url := getSearchUrl(publishedAfter, publishedBefore)
-	logger.Info("URL:", url)
+
+	url := GetSearchUrl(publishedAfter, publishedBefore)
 
 	res, err := client.Get(url)
 	if err != nil {
 		logger.Error("Error fetching data from YouTube:", err)
-		return
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode == http.StatusBadRequest {
 		if usingSecondaryKey {
-			logger.Error("Both API keys expired:", res.Status)
+			logger.Error("Both API keys expired: ", res.Status)
+			stopJobExecution = true
 			return
 		}
-		logger.Error("API key expired:", res.Status)
+		logger.Error("API key expired: ", res.Status)
 		useSecondaryKey()
 		fetchDataFromYoutube(publishedAfter, publishedBefore)
 		return
 	}
 
 	if res.StatusCode != http.StatusOK {
-		logger.Error("Non-OK status code received from YouTube:", res.Status)
+		logger.Error("Non-OK status code received from YouTube: ", res.Status)
 		return
 	}
 
 	var response models.YouTubeVideoList
 	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-		logger.Error("Error decoding JSON response from YouTube:", err)
+		logger.Error("Error decoding JSON response from YouTube: ", err)
 		return
 	}
 
-	items := response.Items
-	logger.Info("Fetched total videos:", len(items))
+	newVideos := response.Items
+	logger.Info("Fetched ", len(newVideos), " for interval: ", utils.FormatAsReadableTime(publishedAfter), " to ", utils.FormatAsReadableTime(publishedBefore))
 
-	for _, item := range items {
+	filteredVideos := filterTheExistingVideoIds(newVideos)
+	logger.Info("Filtered ", len(filteredVideos), " videos to store in db.")
+
+	// storing the videos in database
+	for _, item := range filteredVideos {
+		thumbnails, err := json.Marshal(item.Snippet.Thumbnails)
+		if err != nil {
+			logger.Error("Unable to marshal thumbnails")
+		}
+
 		newVideo := entities.Video{
+			Id:          0,
 			VideoID:     item.ID.VideoID,
 			Title:       item.Snippet.Title,
 			Description: item.Snippet.Description,
 			PublishedAt: int(item.Snippet.PublishTime.Unix()),
+			Thumbnail:   string(thumbnails),
 		}
+		videoIdsMap[item.ID.VideoID] = true
 		newVideo.CreateVideo()
 	}
 
-	if len(items) > 0 {
-		newPublishedAtValue := items[0].Snippet.PublishTime.UTC().Unix()
-		updatedLastPublishConfig := entities.Config{Key: entities.LastFetchedAtKey, Value: fmt.Sprint(newPublishedAtValue)}
-		entities.UpdateValue(updatedLastPublishConfig)
+	// update the last published at value
+	if len(filteredVideos) > 0 {
+		videoPublishTime := filteredVideos[0].Snippet.PublishTime.UTC().Unix()
+		logger.Info("Updating the lastPublishedValue: ", utils.FormatAsReadableTime(videoPublishTime))
+		entities.UpdateValue(entities.Config{Key: entities.LastFetchedAtKey, Value: fmt.Sprint(videoPublishTime)})
 	}
+
+	logger.Success("Completed job execution for job at ", utils.FormatAsReadableTime(time.Now().Unix()))
 }
 
 func StartFetchVideosJob() {
-	defer logger.Info("[StartFetchVideosJob] Completed")
-
 	logger.Info("[StartFetchVideosJob] Waiting for downtime sync")
-	downtimeSync.Wait()
-	logger.Info("[StartFetchVideosJob] Downtime sync completed")
+	fetchDownTimeData()
+	preProcessing.Wait()
+	logger.Success("[StartFetchVideosJob] Downtime sync completed")
 
 	for {
+		if stopJobExecution {
+			break
+		}
 		publishedAfter := getLastPublishedValue()
-		go fetchDataFromYoutube(publishedAfter, "")
-		time.Sleep(30 * time.Second)
+		go fetchDataFromYoutube(publishedAfter, 0)
+		time.Sleep(60 * time.Second)
 	}
+}
+
+func RunTheJobOnce() {
+	publishedAfter := getLastPublishedValue()
+	fetchDataFromYoutube(publishedAfter, 0)
 }

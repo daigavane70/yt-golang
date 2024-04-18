@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"sprint/go/pkg/common/logger"
+	"sprint/go/pkg/constants/env"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 var db *gorm.DB
@@ -23,8 +25,8 @@ func loadEnvFile() {
 }
 
 func GetPortAndHost() (host, port string) {
-	host = getEnvOrDefault("SERVER_HOST", "localhost")
-	port = getEnvOrDefault("SERVER_PORT", "8080")
+	host = getEnvOrDefault(env.SERVER_HOST, "localhost")
+	port = getEnvOrDefault(env.SERVER_PORT, "8080")
 	return
 }
 
@@ -36,24 +38,29 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return value
 }
 
-func GetGoogleApiKey() string {
-	return os.Getenv("API_KEY")
+func GetApiKey(primary bool) string {
+	if primary {
+		return os.Getenv(env.API_KEY_1)
+	}
+	return os.Getenv(env.API_KEY_2)
 }
 
 func ConnectDB() {
 	loadEnvFile()
 
-	dbUsername := os.Getenv("DB_USERNAME")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
+	dbUsername := os.Getenv(env.DB_USERNAME)
+	dbPassword := os.Getenv(env.DB_PASSWORD)
+	dbHost := os.Getenv(env.DB_HOST)
+	dbPort := os.Getenv(env.DB_PORT)
+	dbName := os.Getenv(env.DB_NAME)
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		dbUsername, dbPassword, dbHost, dbPort, dbName)
 
 	var err error
-	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Info),
+	})
 	if err != nil {
 		logger.Error("Error connecting to database:", err)
 		return

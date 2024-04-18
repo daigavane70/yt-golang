@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"sprint/go/pkg/common/logger"
+	"sprint/go/pkg/constants"
 	"time"
 )
 
@@ -43,7 +44,7 @@ func ConvertToUnix(timeValue time.Time) int64 {
 }
 
 // EpochToUTC converts an epoch timestamp (seconds since January 1, 1970 UTC) to UTC time in RFC3339 format.
-func EpochToUTC(epoch int64) string {
+func EpochToRFC3339(epoch int64) string {
 	utcTime := time.Unix(epoch, 0).UTC()
 	return utcTime.Format(time.RFC3339)
 }
@@ -51,4 +52,11 @@ func EpochToUTC(epoch int64) string {
 // FormatToRFC3339 formats a time.Time value to RFC3339 format in UTC.
 func FormatToRFC3339(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func FormatAsReadableTime(epoch int64) string {
+	if epoch == 0 {
+		return time.Now().Format(constants.READABLE_DATA_TIME_FORMAT)
+	}
+	return time.Unix(epoch, 0).Format(constants.READABLE_DATA_TIME_FORMAT)
 }

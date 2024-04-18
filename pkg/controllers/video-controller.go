@@ -9,30 +9,26 @@ import (
 	"strconv"
 )
 
-var NewVideo entities.Video
-
 // SearchVideos handles the API endpoint for searching videos by keyword.
 var SearchVideos = func(w http.ResponseWriter, r *http.Request) {
 	// Get search parameters from URL query
-	searchKeyword := r.URL.Query().Get("search")
+	searchQuery := r.URL.Query().Get("searchQuery")
+
 	page, err := strconv.Atoi(r.URL.Query().Get("page"))
 	if err != nil {
 		page = 1 // Default page if not provided
 	}
+
 	pageSize, err := strconv.Atoi(r.URL.Query().Get("pageSize"))
 	if err != nil {
 		pageSize = 5 // Default page size if not provided
 	}
-	// Check if searchKeyword is empty
-	if searchKeyword == "" {
-		response := models.CreateCommonErrorResponse("Search keyword is required")
-		utils.SendJSONResponse(w, http.StatusBadRequest, response)
-		return
-	}
 
-	logger.Info("Fetching all the videos")
+	logger.Info("[SearchVideos] Searching videos for searchQuery: ", searchQuery, ", page: ", page, ", pageSize: ", pageSize)
+
 	// Call function to search videos by keyword
-	videos, metaData, _ := entities.SearchVideosByKeyword(searchKeyword, pageSize, page)
+	videos, metaData, _ := entities.SearchVideosByKeyword(searchQuery, pageSize, page)
+	logger.Success("[SearchVideos] returning ", len(videos), " records")
 	response := models.CreateCommonSuccessWithMetaDataResponse(videos, metaData)
 	utils.SendJSONResponse(w, http.StatusOK, response)
 }

@@ -1,0 +1,6 @@
+package errors
+
+const (
+	API_KEY_EXPIRED      = "API_KEY_EXPIRED"
+	BOTH_API_KEY_EXPIRED = "BOTH_API_KEY_EXPIRED"
+)

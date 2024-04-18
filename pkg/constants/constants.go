@@ -1,0 +1,7 @@
+package constants
+
+const (
+	READABLE_DATA_TIME_FORMAT = "15:04:05 02/01/2006"
+	READABLE_TIME_FORMAT      = "15:04:05"
+	READABLE_DATE_FORMAT      = "2/01/2006"
+)
