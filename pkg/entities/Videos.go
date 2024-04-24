@@ -6,18 +6,19 @@ import (
 	"sprint/go/pkg/models"
 	"strings"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
 var videoDB *gorm.DB
 
 type Video struct {
-	Id          int    `json:"id"`
-	VideoID     string `json:"videoId"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Thumbnail   string `json:"thumbnail"`
-	PublishedAt int    `json:"publishedAt"`
+	Id          int            `json:"id"`
+	VideoID     string         `json:"videoId"`
+	Title       string         `json:"title"`
+	Description string         `json:"description"`
+	Thumbnail   datatypes.JSON `json:"thumbnail" gorm:"type:json"`
+	PublishedAt int            `json:"publishedAt"`
 }
 
 func init() {
@@ -25,6 +26,7 @@ func init() {
 		config.ConnectDB()
 	}
 	videoDB = config.GetDB()
+	videoDB.AutoMigrate(&Video{})
 }
 
 func (b *Video) CreateVideo() *Video {
@@ -43,12 +45,6 @@ func CreateVideos(videos []Video) error {
 		return result.Error
 	}
 	return nil
-}
-
-func GetAllVideos() []Video {
-	var videos []Video
-	videoDB.Where("title = ?", "Hello").Find(&videos)
-	return videos
 }
 
 func SearchVideosByKeyword(searchQuery string, pageSize int, page int) ([]Video, models.MetaData, error) {

@@ -6,7 +6,6 @@ import (
 	"sprint/go/pkg/common/logger"
 	"sprint/go/pkg/config"
 	"sprint/go/pkg/routes"
-	"sprint/go/pkg/services"
 
 	"github.com/gorilla/mux"
 )
@@ -19,8 +18,6 @@ func main() {
 	routes.RegisterRoutes(r)
 
 	http.Handle("/", r)
-
-	go services.StartFetchVideosJob()
 
 	host, port := config.GetPortAndHost()
 	serverUrl := fmt.Sprintf("%s:%s", host, port)

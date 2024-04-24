@@ -13,6 +13,8 @@ import (
 	"sprint/go/pkg/config"
 	"sprint/go/pkg/entities"
 	"sprint/go/pkg/models"
+
+	"gorm.io/datatypes"
 )
 
 var (
@@ -120,10 +122,8 @@ func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
 
 	// storing the videos in database
 	for _, item := range filteredVideos {
-		thumbnails, err := json.Marshal(item.Snippet.Thumbnails)
-		if err != nil {
-			logger.Error("Unable to marshal thumbnails")
-		}
+
+		thumbnailString, _ := json.Marshal(item.Snippet.Thumbnails)
 
 		newVideo := entities.Video{
 			Id:          0,
@@ -131,8 +131,9 @@ func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
 			Title:       item.Snippet.Title,
 			Description: item.Snippet.Description,
 			PublishedAt: int(item.Snippet.PublishTime.Unix()),
-			Thumbnail:   string(thumbnails),
+			Thumbnail:   datatypes.JSON([]byte(thumbnailString)),
 		}
+
 		videoIdsMap[item.ID.VideoID] = true
 		newVideo.CreateVideo()
 	}

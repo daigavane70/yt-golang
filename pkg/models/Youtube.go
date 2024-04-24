@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type YouTubeVideoList struct {
 	Kind          string `json:"kind"`
