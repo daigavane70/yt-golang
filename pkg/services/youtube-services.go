@@ -80,78 +80,73 @@ func getLastPublishedValue() int64 {
 }
 
 func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
+	url := GetSearchUrl(publishedAfter, publishedBefore)
 
-	varContainsNextPage := true
+	logger.Success("URL: ", url)
 
-	for varContainsNextPage {
-		url := GetSearchUrl(publishedAfter, publishedBefore)
-
-		logger.Success("URL: ", url)
-
-		res, err := http.Get(url)
-		if err != nil {
-			logger.Error("Error fetching data from YouTube:", err)
-		}
-		defer res.Body.Close()
-
-		if res.StatusCode == http.StatusBadRequest {
-			if keyNumber == constants.MAX_API_KEYS {
-				logger.Error("All API keys expired: ", res.Status)
-				stopJobExecution = true
-				return
-			}
-			logger.Error("API key expired: ", apiKey, res.Status)
-			useSecondaryKey()
-			fetchDataFromYoutube(publishedAfter, publishedBefore)
-			return
-		}
-
-		if res.StatusCode != http.StatusOK {
-			logger.Error("Non-OK status code received from YouTube: ", res.Status)
-			return
-		}
-
-		var response models.YouTubeVideoList
-		if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
-			logger.Error("Error decoding JSON response from YouTube: ", err)
-			return
-		}
-
-		newVideos := response.Items
-		logger.Info("Fetched ", len(newVideos), " for interval: ", utils.FormatAsReadableTime(publishedAfter), " to ", utils.FormatAsReadableTime(publishedBefore))
-
-		filteredVideos := filterTheExistingVideoIds(newVideos)
-		logger.Info("Filtered ", len(filteredVideos), " videos to store in db.")
-
-		var videos []entities.Video
-
-		// storing the videos in database
-		for _, item := range filteredVideos {
-			thumbnailString, _ := json.Marshal(item.Snippet.Thumbnails)
-
-			newVideo := entities.Video{
-				VideoID:     item.ID.VideoID,
-				Title:       item.Snippet.Title,
-				Description: item.Snippet.Description,
-				PublishedAt: int(item.Snippet.PublishTime.Unix()),
-				Thumbnail:   thumbnailString,
-			}
-
-			videoIdsMap[item.ID.VideoID] = true
-			videos = append(videos, newVideo)
-		}
-
-		entities.CreateVideos(videos)
-
-		// update the last published at value
-		if len(filteredVideos) > 0 {
-			videoPublishTime := filteredVideos[0].Snippet.PublishTime.UTC().Unix()
-			logger.Info("Updating the lastPublishedValue: ", utils.FormatAsReadableTime(videoPublishTime))
-			entities.UpdateValue(entities.Config{Key: entities.LastFetchedAtKey, Value: fmt.Sprint(videoPublishTime)})
-		}
-
-		logger.Success("Completed job execution for job at ", utils.FormatAsReadableTime(time.Now().Unix()))
+	res, err := http.Get(url)
+	if err != nil {
+		logger.Error("Error fetching data from YouTube:", err)
 	}
+	defer res.Body.Close()
+
+	if res.StatusCode == http.StatusBadRequest {
+		if keyNumber == constants.MAX_API_KEYS {
+			logger.Error("All API keys expired: ", res.Status)
+			stopJobExecution = true
+			return
+		}
+		logger.Error("API key expired: ", apiKey, res.Status)
+		useSecondaryKey()
+		fetchDataFromYoutube(publishedAfter, publishedBefore)
+		return
+	}
+
+	if res.StatusCode != http.StatusOK {
+		logger.Error("Non-OK status code received from YouTube: ", res.Status)
+		return
+	}
+
+	var response models.YouTubeVideoList
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		logger.Error("Error decoding JSON response from YouTube: ", err)
+		return
+	}
+
+	newVideos := response.Items
+	logger.Info("Fetched ", len(newVideos), " for interval: ", utils.FormatAsReadableTime(publishedAfter), " to ", utils.FormatAsReadableTime(publishedBefore))
+
+	filteredVideos := filterTheExistingVideoIds(newVideos)
+	logger.Info("Filtered ", len(filteredVideos), " videos to store in db.")
+
+	var videos []entities.Video
+
+	// storing the videos in database
+	for _, item := range filteredVideos {
+		thumbnailString, _ := json.Marshal(item.Snippet.Thumbnails)
+
+		newVideo := entities.Video{
+			VideoID:     item.ID.VideoID,
+			Title:       item.Snippet.Title,
+			Description: item.Snippet.Description,
+			PublishedAt: int(item.Snippet.PublishTime.Unix()),
+			Thumbnail:   thumbnailString,
+		}
+
+		videoIdsMap[item.ID.VideoID] = true
+		videos = append(videos, newVideo)
+	}
+
+	entities.CreateVideos(videos)
+
+	// update the last published at value
+	if len(filteredVideos) > 0 {
+		videoPublishTime := filteredVideos[0].Snippet.PublishTime.UTC().Unix()
+		logger.Info("Updating the lastPublishedValue: ", utils.FormatAsReadableTime(videoPublishTime))
+		entities.UpdateValue(entities.Config{Key: entities.LastFetchedAtKey, Value: fmt.Sprint(videoPublishTime)})
+	}
+
+	logger.Success("Completed job execution for job at ", utils.FormatAsReadableTime(time.Now().Unix()))
 }
 
 func StartFetchVideosJob() {
