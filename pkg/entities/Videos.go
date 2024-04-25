@@ -13,7 +13,6 @@ import (
 var videoDB *gorm.DB
 
 type Video struct {
-	Id          int            `json:"id"`
 	VideoID     string         `json:"videoId"`
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
@@ -58,7 +57,7 @@ func SearchVideosByKeyword(searchQuery string, pageSize int, page int) ([]Video,
 		keywords := strings.Fields(searchQuery)
 		// Loop through each word and adding a condition to search for it in title or description
 		for _, word := range keywords {
-			query = query.Where("videos.title LIKE ?", "%"+word+"%").Or("videos.description LIKE ?", "%"+word+"%")
+			query = query.Or("videos.title LIKE ?", word+"%").Or("videos.description LIKE ?", word+"%")
 		}
 	}
 

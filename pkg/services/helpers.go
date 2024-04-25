@@ -9,8 +9,8 @@ import (
 func GetSearchUrl(publishedAfter, publishedBefore int64) string {
 	const (
 		part         = "snippet"
-		maxCounts    = 1000000
-		searchQuery  = "cricket"
+		maxCounts    = 50
+		searchQuery  = "ipl"
 		contentType  = "video"
 		dateOrder    = "date"
 		timeFormat   = "2006-01-02T15:04:05Z"

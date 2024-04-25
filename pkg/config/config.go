@@ -38,11 +38,8 @@ func getEnvOrDefault(key, defaultValue string) string {
 	return value
 }
 
-func GetApiKey(primary bool) string {
-	if primary {
-		return os.Getenv(env.API_KEY_1)
-	}
-	return os.Getenv(env.API_KEY_2)
+func GetApiKey(keyNumber int) string {
+	return os.Getenv(fmt.Sprintf("%s%d", env.API_KEY_PREFIX, keyNumber))
 }
 
 func ConnectDB() {
