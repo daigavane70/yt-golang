@@ -6,18 +6,17 @@ import (
 	"sprint/go/pkg/models"
 )
 
-func GetSearchUrl(publishedAfter, publishedBefore int64) string {
+func GetSearchUrl(publishedAfter int64, publishedBefore int64, pageToken string) string {
 	const (
-		part         = "snippet"
-		maxCounts    = 50
-		searchQuery  = "ipl"
-		contentType  = "video"
-		dateOrder    = "date"
-		timeFormat   = "2006-01-02T15:04:05Z"
-		apiKeyPrefix = "&key="
+		part        = "snippet"
+		maxCounts   = 50
+		searchQuery = "ipl"
+		contentType = "video"
+		dateOrder   = "date"
+		timeFormat  = "2006-01-02T15:04:05Z"
 	)
 
-	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s%s%s", part, searchQuery, maxCounts, dateOrder, utils.EpochToRFC3339(publishedAfter), contentType, apiKeyPrefix, apiKey)
+	url := fmt.Sprintf("https://www.googleapis.com/youtube/v3/search?part=%s&q=%s&maxResults=%d&order=%s&publishedAfter=%s&type=%s&key=%s&pageToken=%s", part, searchQuery, maxCounts, dateOrder, utils.EpochToRFC3339(publishedAfter), contentType, apiKey, pageToken)
 
 	if publishedBefore != 0 {
 		url += fmt.Sprintf("&publishedBefore=%s", utils.EpochToRFC3339(publishedBefore))

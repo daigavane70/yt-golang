@@ -79,8 +79,8 @@ func getLastPublishedValue() int64 {
 	return epoch
 }
 
-func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
-	url := GetSearchUrl(publishedAfter, publishedBefore)
+func getDataFromYouTube(publishedAfter int64, publishedBefore int64, pageToken string, videoList *[]models.YouTubeVideoItem) {
+	url := GetSearchUrl(publishedAfter, publishedBefore, pageToken)
 
 	logger.Success("URL: ", url)
 
@@ -113,7 +113,24 @@ func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
 		return
 	}
 
-	newVideos := response.Items
+	if len(response.Items) == 0 {
+		return
+	}
+
+	*videoList = append(*videoList, response.Items...)
+
+	if response.NextPageToken != "" {
+		logger.Info("Making the call for page: ", response.NextPageToken)
+		getDataFromYouTube(publishedAfter, publishedBefore, response.NextPageToken, videoList)
+	}
+}
+
+func fetchDataFromYoutube(publishedAfter int64, publishedBefore int64) {
+
+	var newVideos []models.YouTubeVideoItem
+
+	getDataFromYouTube(publishedAfter, publishedBefore, "", &newVideos)
+
 	logger.Info("Fetched ", len(newVideos), " for interval: ", utils.FormatAsReadableTime(publishedAfter), " to ", utils.FormatAsReadableTime(publishedBefore))
 
 	filteredVideos := filterTheExistingVideoIds(newVideos)
