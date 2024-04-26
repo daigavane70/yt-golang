@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"sprint/go/pkg/common/logger"
-	"sprint/go/pkg/config"
 	"sprint/go/pkg/routes"
 
 	"github.com/gorilla/mux"
 )
 
 func main() {
-	config.ConnectDB()
 
 	r := mux.NewRouter()
 
@@ -19,8 +17,7 @@ func main() {
 
 	http.Handle("/", r)
 
-	host, port := config.GetPortAndHost()
-	serverUrl := fmt.Sprintf("%s:%s", host, port)
+	serverUrl := fmt.Sprintf("%s:%s", "localhost", "8080")
 
 	logger.Error(http.ListenAndServe(serverUrl, r))
 }
